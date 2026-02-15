@@ -1,15 +1,19 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
+import logging
+import asyncpg
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from shared.database import add_user, get_balance, set_user_gender, get_user_gender, register_referral
-import asyncpg
-import logging
+from shared.database import (
+    add_user, get_balance, set_user_gender, get_user_gender,
+    register_referral, get_ref_code
+)
+from shared.admin_notifier import notify_new_user
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -39,8 +43,9 @@ async def cmd_start(message: types.Message, state: FSMContext):
                 await conn.close()
         balance = await get_balance(telegram_id)
         await message.answer(
-            f"👋 С возвращением, {first_name}!\n💰 Баланс: {balance} рофлов.\n"
-            "📌 /catalog — все проекты\n🎁 /daily — ежедневный бонус\n💸 /send — перевести\n🔗 /ref — рефералка"
+            f"👋 С возвращением, {first_name}!\n"
+            f"💰 Твой баланс: {balance} рофлов.\n\n"
+            f"📌 /catalog — все проекты\n🎁 /daily — ежедневный бонус\n💸 /send — перевести\n🔗 /ref — рефералка"
         )
         return
 
@@ -53,14 +58,18 @@ async def cmd_start(message: types.Message, state: FSMContext):
         [InlineKeyboardButton(text="👩 Женский", callback_data="gender_female")],
         [InlineKeyboardButton(text="🤖 Другой / Не скажу", callback_data="gender_other")]
     ])
-    await message.answer("👋 Выбери пол:", parse_mode="Markdown", reply_markup=keyboard)
+    await message.answer("👋 Привет! Выбери пол:", parse_mode="Markdown", reply_markup=keyboard)
     await state.set_state(GenderState.waiting_gender)
 
 @router.callback_query(GenderState.waiting_gender, F.data.startswith("gender_"))
 async def process_gender(callback: CallbackQuery, state: FSMContext):
     gender_code = callback.data.split("_")[1]
     data = await state.get_data()
-    telegram_id, eco_id, username, first_name, last_name = data['telegram_id'], data['eco_id'], data['username'], data['first_name'], data['last_name']
+    telegram_id = data['telegram_id']
+    eco_id = data['eco_id']
+    username = data['username']
+    first_name = data['first_name']
+    last_name = data['last_name']
     referrer_code = data.get('referrer_code')
 
     await set_user_gender(telegram_id, gender_code)
@@ -87,6 +96,5 @@ async def process_gender(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(welcome_text, parse_mode="Markdown")
     await callback.answer()
 
-    from shared.admin_notifier import notify_new_user
     await notify_new_user(telegram_id, eco_id, username, first_name, last_name, gender_code, balance)
     await state.clear()

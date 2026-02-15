@@ -1,11 +1,11 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
+import logging
 from aiogram import Router, types
 from aiogram.filters import Command
 from shared.database import claim_daily, get_balance, get_user_gender
-import logging
 
 router = Router()
 logger = logging.getLogger(__name__)

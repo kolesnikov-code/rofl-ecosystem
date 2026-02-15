@@ -1,6 +1,6 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from aiogram import Router, types
 from aiogram.filters import Command
@@ -9,7 +9,7 @@ import logging
 
 router = Router()
 logger = logging.getLogger(__name__)
-ADMIN_ID = 838371525  # замени на свой
+ADMIN_ID = 5270210217  # замени на свой
 
 @router.message(Command("fix_transactions"))
 async def cmd_fix(message: types.Message):

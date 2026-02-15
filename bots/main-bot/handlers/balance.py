@@ -1,9 +1,9 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-import asyncpg
 import logging
+import asyncpg
 import html
 from aiogram import Router, types, F
 from aiogram.filters import Command, StateFilter
@@ -41,7 +41,7 @@ async def transfer_start_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.message(Command("cancel"), StateFilter(TransferState))
-async def cmd_cancel(message: types.Message, state: FSMContext):
+async def cmd_cancel_in_transfer(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer("❌ Перевод отменён.")
 
@@ -53,7 +53,9 @@ async def transfer_identifier(message: types.Message, state: FSMContext):
 
     DATABASE_URL = os.getenv("DATABASE_URL")
     if not DATABASE_URL:
-        await message.answer("❌ Ошибка БД."); await state.clear(); return
+        await message.answer("❌ Ошибка БД.")
+        await state.clear()
+        return
 
     receiver_id = None
     try:
@@ -62,25 +64,35 @@ async def transfer_identifier(message: types.Message, state: FSMContext):
             if identifier.startswith('@'):
                 clean = identifier[1:].strip()
                 row = await conn.fetchrow("SELECT telegram_id FROM users WHERE username ILIKE $1", clean)
-                if row: receiver_id = row[0]
+                if row:
+                    receiver_id = row[0]
             elif identifier.startswith('ROFL-') or identifier.startswith('KLM_'):
                 row = await conn.fetchrow("SELECT telegram_id FROM users WHERE eco_id = $1", identifier)
-                if row: receiver_id = row[0]
+                if row:
+                    receiver_id = row[0]
             elif identifier.isdigit():
                 row = await conn.fetchrow("SELECT telegram_id FROM users WHERE telegram_id = $1", int(identifier))
-                if row: receiver_id = row[0]
+                if row:
+                    receiver_id = row[0]
             else:
-                await message.answer("❌ Неверный формат."); return
+                await message.answer("❌ Неверный формат.")
+                return
         finally:
             await conn.close()
     except Exception as e:
         logger.error(f"Ошибка БД: {e}")
-        await message.answer("❌ Ошибка поиска."); await state.clear(); return
+        await message.answer("❌ Ошибка поиска.")
+        await state.clear()
+        return
 
     if not receiver_id:
-        await message.answer(f"❌ Пользователь {identifier} не найден."); await state.clear(); return
+        await message.answer(f"❌ Пользователь {identifier} не найден.")
+        await state.clear()
+        return
     if receiver_id == sender_id:
-        await message.answer("❌ Нельзя переводить себе."); await state.clear(); return
+        await message.answer("❌ Нельзя переводить себе.")
+        await state.clear()
+        return
 
     await state.update_data(receiver_id=receiver_id, receiver_identifier=identifier)
     await message.answer(f"📤 Получатель: {identifier}\n\nВведи сумму (минимум 100):")
@@ -91,9 +103,11 @@ async def transfer_amount(message: types.Message, state: FSMContext):
     try:
         amount = int(message.text)
         if amount < 100:
-            await message.answer("❌ Минимум 100."); return
+            await message.answer("❌ Минимум 100.")
+            return
     except ValueError:
-        await message.answer("❌ Сумма должна быть числом."); return
+        await message.answer("❌ Сумма должна быть числом.")
+        return
 
     data = await state.get_data()
     receiver_id, receiver_identifier = data['receiver_id'], data['receiver_identifier']
@@ -102,8 +116,11 @@ async def transfer_amount(message: types.Message, state: FSMContext):
     if success:
         sender_balance = await get_balance(message.from_user.id)
         await message.answer(
-            f"✅ {msg}\n💸 Отправлено: {amount} рофлов\n🧾 Комиссия (25%): {details['commission']}\n"
-            f"📥 {receiver_identifier} получил: {details['receive']}\n💳 Твой баланс: {sender_balance}"
+            f"✅ {msg}\n\n"
+            f"💸 Отправлено: {amount} рофлов\n"
+            f"🧾 Комиссия (25%): {details['commission']} рофлов (сожжена)\n"
+            f"📥 {receiver_identifier} получил: {details['receive']} рофлов\n"
+            f"💳 Твой баланс: {sender_balance} рофлов"
         )
         try:
             await message.bot.send_message(receiver_id,
