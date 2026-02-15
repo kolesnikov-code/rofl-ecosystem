@@ -4,7 +4,7 @@ import logging
 import secrets
 from datetime import datetime, timedelta
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
+DATABASE_URL = os.environ.get("postgresql://postgres:WqqsEHkNBTtxKHfiloNynKnZuSVJFgRn@postgres.railway.internal:5432/railway")
 if not DATABASE_URL:
     raise ValueError("❌ CRITICAL: DATABASE_URL environment variable is not set!")
 
