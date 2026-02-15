@@ -9,7 +9,6 @@ if not DATABASE_URL:
     raise ValueError("❌ CRITICAL: DATABASE_URL environment variable is not set!")
 
 async def init_db():
-    """Создаёт таблицы и индексы."""
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         await conn.execute('''
@@ -48,21 +47,17 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         ''')
-        # Индексы
         await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_id ON users(telegram_id)")
         await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_eco_id ON users(eco_id)")
         await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_ref_code ON users(ref_code)")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id)")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals(referred_id)")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id)")
-
         logging.info("✅ База данных PostgreSQL инициализирована")
     finally:
         await conn.close()
 
-# ---------- Работа с пользователями ----------
 async def generate_eco_id(conn) -> str:
-    """Генерирует новый Eco ID в формате ROFL-0000001."""
     count = await conn.fetchval("SELECT COUNT(*) FROM users")
     next_id = (count or 0) + 1
     return f"ROFL-{next_id:07d}"
@@ -73,7 +68,6 @@ async def add_user(telegram_id: int, username: str, first_name: str, last_name: 
         row = await conn.fetchrow("SELECT eco_id FROM users WHERE telegram_id = $1", telegram_id)
         if row:
             return row[0]
-
         eco_id = await generate_eco_id(conn)
         await conn.execute(
             "INSERT INTO users (telegram_id, eco_id, username, first_name, last_name, balance) VALUES ($1, $2, $3, $4, $5, $6)",
@@ -112,12 +106,9 @@ async def get_eco_id(telegram_id: int) -> str:
     finally:
         await conn.close()
 
-# ---------- Функция для получения ROFL ID (псевдоним для get_eco_id) ----------
 async def get_rofl_id(telegram_id: int) -> str:
-    """Возвращает ROFL ID пользователя (то же самое, что eco_id)."""
     return await get_eco_id(telegram_id)
 
-# ---------- Транзакции ----------
 async def add_transaction(telegram_id: int, amount: int, type_: str, description: str = "", related_id: int = None):
     conn = await asyncpg.connect(DATABASE_URL)
     try:
@@ -128,7 +119,6 @@ async def add_transaction(telegram_id: int, amount: int, type_: str, description
     finally:
         await conn.close()
 
-# ---------- Гендер ----------
 async def set_user_gender(telegram_id: int, gender: str) -> bool:
     conn = await asyncpg.connect(DATABASE_URL)
     try:
@@ -145,7 +135,6 @@ async def get_user_gender(telegram_id: int) -> str:
     finally:
         await conn.close()
 
-# ---------- Ежедневный бонус ----------
 async def get_daily_info(telegram_id: int):
     conn = await asyncpg.connect(DATABASE_URL)
     try:
@@ -163,50 +152,31 @@ async def get_daily_info(telegram_id: int):
 async def claim_daily(telegram_id: int):
     now = datetime.now()
     last, streak = await get_daily_info(telegram_id)
-
-    if last:
-        delta = now - last
-        if delta < timedelta(hours=24):
-            return None
-
-    if last:
-        if now - last < timedelta(hours=48):
-            streak += 1
-        else:
-            streak = 1
+    if last and (now - last) < timedelta(hours=24):
+        return None
+    if last and (now - last) < timedelta(hours=48):
+        streak += 1
     else:
         streak = 1
-
     bonus = min(50 + (streak - 1) * 10, 200)
-
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         await conn.execute(
-            """
-            UPDATE users
-            SET balance = COALESCE(balance, 0) + $1,
-                last_daily = $2,
-                daily_streak = $3
-            WHERE telegram_id = $4
-            """,
+            "UPDATE users SET balance = COALESCE(balance, 0) + $1, last_daily = $2, daily_streak = $3 WHERE telegram_id = $4",
             bonus, now, streak, telegram_id
         )
     finally:
         await conn.close()
-
     new_balance = await get_balance(telegram_id)
     logging.info(f"✅ Ежедневный бонус: user={telegram_id}, bonus={bonus}, streak={streak}, new_balance={new_balance}")
-
-    await add_transaction(telegram_id, bonus, "daily", f"Ежедневный бонус, день {streak}")
+    await add_transaction(telegram_id, bonus, "daily", f"День {streak}")
     return bonus, streak
 
-# ---------- Переводы ----------
 async def transfer_coins(sender_id: int, receiver_id: int, amount: int):
     if amount < 100:
-        return False, "Минимальная сумма перевода — 100 рофлов.", None
+        return False, "Минимальная сумма — 100 рофлов.", None
     if sender_id == receiver_id:
         return False, "Нельзя переводить самому себе.", None
-
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         async with conn.transaction():
@@ -214,21 +184,17 @@ async def transfer_coins(sender_id: int, receiver_id: int, amount: int):
                 "SELECT COALESCE(balance, 0) FROM users WHERE telegram_id = $1 FOR UPDATE", sender_id
             )
             if not sender_row:
-                return False, "Отправитель не найден в системе.", None
+                return False, "Отправитель не найден.", None
             sender_balance = sender_row[0]
-
             if sender_balance < amount:
-                return False, f"Недостаточно средств. Твой баланс: {sender_balance} рофлов.", None
-
+                return False, f"Недостаточно средств. Баланс: {sender_balance}.", None
             receiver_row = await conn.fetchrow(
                 "SELECT COALESCE(balance, 0) FROM users WHERE telegram_id = $1", receiver_id
             )
             if not receiver_row:
-                return False, "Получатель не найден в системе.", None
-
+                return False, "Получатель не найден.", None
             commission = int(amount * 0.25)
             receive_amount = amount - commission
-
             await conn.execute(
                 "UPDATE users SET balance = COALESCE(balance, 0) - $1 WHERE telegram_id = $2",
                 amount, sender_id
@@ -239,11 +205,9 @@ async def transfer_coins(sender_id: int, receiver_id: int, amount: int):
             )
     finally:
         await conn.close()
-
-    await add_transaction(sender_id, -amount, "transfer_out", f"Перевод пользователю {receiver_id}", receiver_id)
-    await add_transaction(receiver_id, receive_amount, "transfer_in", f"Получено от {sender_id}", sender_id)
-
-    return True, "Перевод выполнен успешно!", {
+    await add_transaction(sender_id, -amount, "transfer_out", f"Перевод {receiver_id}", receiver_id)
+    await add_transaction(receiver_id, receive_amount, "transfer_in", f"От {sender_id}", sender_id)
+    return True, "Перевод выполнен!", {
         "amount": amount,
         "commission": commission,
         "receive": receive_amount,
@@ -251,7 +215,6 @@ async def transfer_coins(sender_id: int, receiver_id: int, amount: int):
         "receiver": receiver_id
     }
 
-# ---------- Реферальная система ----------
 async def generate_ref_code(telegram_id: int) -> str:
     eco_id = await get_eco_id(telegram_id)
     if not eco_id:
@@ -265,12 +228,8 @@ async def get_ref_code(telegram_id: int) -> str:
         row = await conn.fetchrow("SELECT ref_code FROM users WHERE telegram_id = $1", telegram_id)
         if row and row[0]:
             return row[0]
-
         code = await generate_ref_code(telegram_id)
-        await conn.execute(
-            "UPDATE users SET ref_code = $1 WHERE telegram_id = $2",
-            code, telegram_id
-        )
+        await conn.execute("UPDATE users SET ref_code = $1 WHERE telegram_id = $2", code, telegram_id)
         return code
     finally:
         await conn.close()
@@ -281,22 +240,17 @@ async def register_referral(referrer_id: int, referred_id: int):
         row = await conn.fetchrow("SELECT id FROM referrals WHERE referred_id = $1", referred_id)
         if row:
             return
-
         await conn.execute(
             "INSERT INTO referrals (referrer_id, referred_id, level) VALUES ($1, $2, 1)",
             referrer_id, referred_id
         )
     finally:
         await conn.close()
-
     await update_balance(referrer_id, 1000)
     await add_transaction(referrer_id, 1000, "referral", f"Реферал {referred_id}")
-
     conn2 = await asyncpg.connect(DATABASE_URL)
     try:
-        row = await conn2.fetchrow(
-            "SELECT referrer_id FROM referrals WHERE referred_id = $1", referrer_id
-        )
+        row = await conn2.fetchrow("SELECT referrer_id FROM referrals WHERE referred_id = $1", referrer_id)
         if row:
             level2_id = row[0]
             await update_balance(level2_id, 500)

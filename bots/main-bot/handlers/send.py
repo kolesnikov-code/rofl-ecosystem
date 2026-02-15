@@ -1,6 +1,9 @@
+import sys
 import os
-import asyncpg
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+
 import logging
+import asyncpg
 import html
 from aiogram import Router, types, F
 from aiogram.filters import Command, StateFilter
@@ -11,6 +14,7 @@ from shared.database import transfer_coins, get_balance
 router = Router()
 logger = logging.getLogger(__name__)
 
+# Состояния для перевода
 class SendState(StatesGroup):
     waiting_identifier = State()
     waiting_amount = State()
@@ -18,9 +22,11 @@ class SendState(StatesGroup):
 @router.message(Command("send"))
 async def cmd_send(message: types.Message, state: FSMContext):
     args = message.text.split()
+    # Если есть аргументы, пробуем быстрый перевод
     if len(args) == 3:
         await quick_send(message)
         return
+    # Иначе запускаем пошаговый диалог
     await state.set_state(SendState.waiting_identifier)
     await message.answer(
         "💸 Введи **получателя** — можно использовать:\n"
@@ -32,6 +38,7 @@ async def cmd_send(message: types.Message, state: FSMContext):
     )
 
 async def quick_send(message: types.Message):
+    """Быстрый перевод в формате /send @username сумма"""
     args = message.text.split()
     target = args[1]
     try:
@@ -113,6 +120,7 @@ async def quick_send(message: types.Message):
     else:
         await message.answer(f"❌ {msg}")
 
+# ---------- Пошаговый ввод получателя ----------
 @router.message(SendState.waiting_identifier, ~F.text.startswith('/'))
 async def send_identifier(message: types.Message, state: FSMContext):
     identifier = message.text.strip()
@@ -186,6 +194,7 @@ async def send_identifier(message: types.Message, state: FSMContext):
         await state.clear()
         return
 
+    # Сохраняем данные и запрашиваем сумму — используем HTML, экранируем identifier
     await state.update_data(receiver_id=receiver_id, receiver_identifier=identifier)
     try:
         await message.answer(
@@ -201,6 +210,7 @@ async def send_identifier(message: types.Message, state: FSMContext):
         await state.clear()
         return
 
+# ---------- Ввод суммы ----------
 @router.message(SendState.waiting_amount, ~F.text.startswith('/'))
 async def send_amount(message: types.Message, state: FSMContext):
     sender_id = message.from_user.id
@@ -245,6 +255,7 @@ async def send_amount(message: types.Message, state: FSMContext):
     await state.clear()
     logger.info(f"💰 Перевод от {sender_id} к {receiver_id} на сумму {amount} завершён")
 
+# ---------- Отмена ----------
 @router.message(Command("cancel"), StateFilter(SendState))
 async def cancel_send(message: types.Message, state: FSMContext):
     await state.clear()

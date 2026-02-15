@@ -7,5 +7,4 @@ from . import send
 from . import referral
 from . import payment
 from . import myid
-from . import migrate
 from . import fix_transactions

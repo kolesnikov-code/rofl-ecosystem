@@ -12,38 +12,16 @@ async def cmd_daily(message: types.Message):
     try:
         result = await claim_daily(user_id)
     except Exception as e:
-        logger.error(f"Ошибка в daily для {user_id}: {e}")
-        await message.answer("❌ Что-то пошло не так. Попробуй позже.")
+        logger.error(f"Ошибка daily для {user_id}: {e}")
+        await message.answer("❌ Ошибка. Попробуй позже.")
         return
 
     if result is None:
-        await message.answer("⏳ Ты уже получал(а) ежедневный бонус сегодня. Возвращайся через 24 часа!")
+        await message.answer("⏳ Ты уже получал бонус сегодня. Возвращайся через 24ч!")
         return
 
     bonus, streak = result
     balance = await get_balance(user_id)
     gender = await get_user_gender(user_id) or "other"
-
-    if gender == "male":
-        msg = (
-            f"🎁 Ежедневный бонус получен!\n"
-            f"💰 +{bonus} рофлов\n"
-            f"🔥 Серия: {streak} дней\n"
-            f"💳 Твой баланс: {balance} рофлов"
-        )
-    elif gender == "female":
-        msg = (
-            f"🎁 Ежедневный бонус получен!\n"
-            f"💰 +{bonus} рофлов\n"
-            f"🔥 Серия: {streak} дней\n"
-            f"💳 Твой баланс: {balance} рофлов"
-        )
-    else:
-        msg = (
-            f"🎁 Ежедневный бонус получен!\n"
-            f"💰 +{bonus} рофлов\n"
-            f"🔥 Серия: {streak} дней\n"
-            f"💳 Твой баланс: {balance} рофлов"
-        )
-
+    msg = f"🎁 Ежедневный бонус!\n💰 +{bonus} рофлов\n🔥 Серия: {streak} дней\n💳 Баланс: {balance}"
     await message.answer(msg)

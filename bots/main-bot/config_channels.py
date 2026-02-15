@@ -1,25 +1,10 @@
-# config_channels.py
-# ==================================================
-# СПИСОК КАНАЛОВ ЭКОСИСТЕМЫ
-# Формат: (username, название_для_отчёта, chat_id — опционально)
-# ==================================================
-
 ECOSYSTEM_CHANNELS = [
-    # ————— УЖЕ РАБОТАЮТ (бот — администратор) —————
-    ("@code_money", "Код и деньги | Золотая клавиатура"),
-    ("@investor_pro", "Инвестор | Акции, Золото, Недвижка"),
-    ("@market_slivki", "Сливки маркетплейсов"),
-
-    # ————— СОЗДАНЫ, БОТ БУДЕТ ДОБАВЛЕН ПОЗЖЕ —————
-    ("@job_online", "Онлайн-работа России"),
-    ("@family_pro", "PRO Детей | Mom&Woman"),
+    ("@code_money", "Код и деньги"),
+    ("@investor_pro", "Инвестор"),
+    ("@market_slivki", "Сливки"),
+    ("@job_online", "Онлайн-работа"),
+    ("@family_pro", "PRO Семью"),
     ("@easy_money", "Простые деньги"),
-    ("@kolesnikov_pro", "Kolesnikov Pro | Заработок"),
-
-    # ————— ПЛАНИРУЮТСЯ (добавишь позже) —————
-    # ("@ai_psy_bot", "AI-психолог"),
-    # ("@ai_mom_bot", "Цифровая мама"),
+    ("@kolesnikov_pro", "Kolesnikov Pro"),
 ]
-
-# Для быстрого доступа по username (используется в обработчиках)
-CHANNEL_DICT = {username: display_name for username, display_name in ECOSYSTEM_CHANNELS}
+CHANNEL_DICT = {username: name for username, name in ECOSYSTEM_CHANNELS}

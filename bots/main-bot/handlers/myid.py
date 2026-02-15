@@ -9,10 +9,7 @@ async def cmd_myid(message: types.Message):
     user_id = message.from_user.id
     eco_id = await get_eco_id(user_id)
     await message.answer(
-        f"🆔 **Твой ROFL ID:** `{eco_id}`\n\n"
-        "📌 Используй его для переводов и входа на сайт.\n"
-        "Также ты можешь переводить по:\n"
-        "• @username\n"
-        "• Telegram ID (число)",
+        f"🆔 **Твой ROFL ID:** `{eco_id}`\n"
+        "📌 Используй для переводов.",
         parse_mode="Markdown"
     )

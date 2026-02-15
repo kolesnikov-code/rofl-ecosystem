@@ -3,50 +3,36 @@ from aiogram.filters import Command
 
 router = Router()
 
-# ---------- Обработчик кнопки (уже есть) ----------
 @router.callback_query(lambda c: c.data == "show_projects")
 async def show_projects_callback(callback: types.CallbackQuery):
     await show_projects_message(callback.message)
     await callback.answer()
 
-# ---------- Обработчик команды /catalog ----------
 @router.message(Command("catalog"))
 async def cmd_catalog(message: types.Message):
     await show_projects_message(message)
 
-# ---------- Общая функция отправки каталога ----------
 async def show_projects_message(target: types.Message):
-    """Отправляет список проектов в чат (работает и для message, и для callback)."""
-    projects_text = """
+    text = """
 🚀 <b>Экосистема ROFL</b>
 
 📌 <b>Каналы:</b>
-• @code_money — Код и деньги | Золотая клавиатура
-• @investor_pro — Инвестор | Акции, Золото, Недвижка
-• @job_online — Онлайн-работа России
-• @family_pro — PRO Детей | Mom&Woman
-• @market_slivki — Сливки маркетплейсов
+• @code_money — Код и деньги
+• @investor_pro — Инвестор
+• @job_online — Работа
+• @family_pro — PRO Семью
+• @market_slivki — Сливки
 • @easy_money — Простые деньги
-• @kolesnikov_pro — Kolesnikov Pro | Заработок
+• @kolesnikov_pro — Kolesnikov Pro
 
 🎮 <b>Игры и боты:</b>
-• @quiz_million_bot — Квиз на миллион
-• @rps_game_bot — 🪨✂️📜 Камень‑ножницы‑бумага
-• @school_formulas_bot — School formulas (решалка задач)
-• @anonymous_giver_bot — Щедрый аноним (конкурсы)
+• @rps_game_bot — КНБ
+• @quiz_million_bot — Квиз
+• @school_formulas_bot — Формулы
+• @anonymous_giver_bot — Аноним
 
-🧠 <b>AI‑ассистенты (скоро):</b>
-• 🤖 AI‑психолог
-• 🤖 Цифровая мама
-• 🤖 AI‑репетитор
-• 🤖 AI‑помощник программиста
-
-🌐 <b>Сайты и сервисы:</b>
+🌐 <b>Сайты:</b>
 • https://kolesnikov.pro
 • https://code.money
-• https://edu.code.money — платформа курсов
-
-🔐 <b>LoLSchool — школа мемов и денег</b>
-• Скоро открытие. Ты первый, кто узнал!
 """
-    await target.answer(projects_text, parse_mode="HTML")
+    await target.answer(text, parse_mode="HTML")
